@@ -1,6 +1,6 @@
 import Foundation
 
-public struct JSONClient<Error: Swift.Error> {
+public struct APIClient<Error: Swift.Error> {
 
     public enum Error: Swift.Error {
         case foundation(NSError)
@@ -8,10 +8,10 @@ public struct JSONClient<Error: Swift.Error> {
     }
 
     public let baseUrl: String
-    fileprivate let errorMap: (JSONClient.Error, Data?) -> Error
+    fileprivate let errorMap: (APIClient.Error, Data?) -> Error
     public var headers: [String: String]
 
-    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (JSONClient.Error, Data?) -> Error) {
+    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (APIClient.Error, Data?) -> Error) {
         self.baseUrl = baseUrl
         self.errorMap = errorMap
         self.headers = headers
