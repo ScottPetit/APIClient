@@ -64,7 +64,7 @@ public struct APIClient<Error: Swift.Error> {
     }
 
     public func request<T>(from resource: Resource<T>) -> NSMutableURLRequest {
-        var urlComponents = URLComponents(string: baseUrl + resource.path)
+        var urlComponents = URLComponents(string: baseUrl + resource.path.path)
         if let parameters = resource.parameters, !parameters.isEmpty {
             let queryItems = parameters.map(URLQueryItem.init)
             urlComponents?.queryItems = queryItems

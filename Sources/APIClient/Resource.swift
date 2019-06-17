@@ -7,7 +7,7 @@ public struct Resource<A: Decodable> {
     public let parameters: [String: String]?
     public let parse: (Data) -> Result<A, DecodingError>
 
-    public init(path: String, method: HTTPMethod, headers: [String: String] = [:], parameters: [String: String]? = nil, parse: @escaping (Data) -> Result<A, DecodingError> = decode) {
+    public init(path: PathConvertible, method: HTTPMethod, headers: [String: String] = [:], parameters: [String: String]? = nil, parse: @escaping (Data) -> Result<A, DecodingError> = decode) {
         self.path = path
         self.method = method
         self.headers = headers
