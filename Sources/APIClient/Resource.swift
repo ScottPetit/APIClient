@@ -1,7 +1,7 @@
 import Foundation
 
 public struct Resource<A: Decodable> {
-    public let path: String
+    public let path: PathConvertible
     public let method: HTTPMethod
     public let headers: [String: String]
     public let parameters: [String: String]?
