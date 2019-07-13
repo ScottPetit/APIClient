@@ -18,7 +18,7 @@ public struct APIClient<Error: Swift.Error> {
     }
 
     @discardableResult
-    public func load<T>(_ resource: Resource<T>, completion: @escaping (Result<T, Error>) -> Void) -> CancelableOperation {
+    public func load<T>(_ resource: Endpoint<T>, completion: @escaping (Result<T, Error>) -> Void) -> CancelableOperation {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
@@ -35,11 +35,11 @@ public struct APIClient<Error: Swift.Error> {
             let responseData = data ?? Data()
 
             if let response = response as? HTTPURLResponse {
-                guard response.hasValidStatusCode() else {
+                guard resource.acceptableStatusCode(response.statusCode) else {
                     let error = NSError(domain: "com.webservice.load", code: response.statusCode, userInfo: ["Reason": "Failing Status Code"])
                     completion(.failure(self.errorMap(.foundation(error), data)))
                     return
-                }
+                }                
 
                 if response.requiresData() {
                     guard !responseData.isEmpty else {
@@ -63,7 +63,7 @@ public struct APIClient<Error: Swift.Error> {
         return task
     }
 
-    public func request<T>(from resource: Resource<T>) -> NSMutableURLRequest {
+    public func request<T>(from resource: Endpoint<T>) -> NSMutableURLRequest {
         var urlComponents = URLComponents(string: baseUrl + resource.path.path)
         if let parameters = resource.parameters, !parameters.isEmpty {
             let queryItems = parameters.map(URLQueryItem.init)
