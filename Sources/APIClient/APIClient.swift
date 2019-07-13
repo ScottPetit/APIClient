@@ -18,7 +18,7 @@ public struct APIClient<Error: Swift.Error> {
     }
 
     @discardableResult
-    public func load<T>(_ resource: Endpoint<T>, completion: @escaping (Result<T, Error>) -> Void) -> CancelableOperation {
+    public func load<T>(_ resource: RemoteEndpoint<T>, completion: @escaping (Result<T, Error>) -> Void) -> CancelableOperation {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
@@ -63,7 +63,7 @@ public struct APIClient<Error: Swift.Error> {
         return task
     }
 
-    public func request<T>(from resource: Endpoint<T>) -> NSMutableURLRequest {
+    public func request<T>(from resource: RemoteEndpoint<T>) -> NSMutableURLRequest {
         var urlComponents = URLComponents(string: baseUrl + resource.path.path)
         if let parameters = resource.parameters, !parameters.isEmpty {
             let queryItems = parameters.map(URLQueryItem.init)

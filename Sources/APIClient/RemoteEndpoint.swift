@@ -4,7 +4,7 @@ public func expected200to300(_ code: Int) -> Bool {
     return code >= 200 && code < 300
 }
 
-public struct Endpoint<A: Decodable> {
+public struct RemoteEndpoint<A: Decodable> {
     public let path: PathConvertible
     public let method: HTTPMethod
     public let headers: [String: String]
@@ -21,14 +21,14 @@ public struct Endpoint<A: Decodable> {
         self.parse = parse
     }
 
-    public func append(_ headers: [String: String], uniquingKeysWith combine: ((String, String) -> String)? = nil) -> Endpoint<A> {
+    public func append(_ headers: [String: String], uniquingKeysWith combine: ((String, String) -> String)? = nil) -> RemoteEndpoint<A> {
         let newHeaders = self.headers.merging(headers) { (old, new) -> String in
             return combine?(old, new) ?? new
         }
-        return Endpoint(path: self.path, method: self.method, headers: newHeaders, parameters: self.parameters, parse: parse)
+        return RemoteEndpoint(path: self.path, method: self.method, headers: newHeaders, parameters: self.parameters, parse: parse)
     }
 
-    public func map<B: Decodable>(_ transform: @escaping (A) -> B) -> Endpoint<B> {
-        return Endpoint<B>(path: self.path, method: self.method, headers: self.headers, parameters: self.parameters) { self.parse($0).map(transform) }
+    public func map<B: Decodable>(_ transform: @escaping (A) -> B) -> RemoteEndpoint<B> {
+        return RemoteEndpoint<B>(path: self.path, method: self.method, headers: self.headers, parameters: self.parameters) { self.parse($0).map(transform) }
     }
 }
