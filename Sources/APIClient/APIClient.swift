@@ -5,6 +5,7 @@ public struct APIClient<Error: Swift.Error> {
 
     public enum Error: Swift.Error {
         case foundation(NSError)
+        case url(URLError)
         case decoding(DecodingError)
     }
 
@@ -65,35 +66,18 @@ public struct APIClient<Error: Swift.Error> {
     }
 
     @available(iOS 13, *)
-    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>) -> Publishers.Map<URLSession.DataTaskPublisher, Result<T, Error>> {
+    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>) -> AnyPublisher<Result<T, DecodingError>, Error> {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
         let request = self.request(from: finalResource)
         let session = URLSession.shared
-        let publisher = session.dataTaskPublisher(for: request as URLRequest).map { (data, response) -> Result<T, Error> in
-            if let response = response as? HTTPURLResponse {
-                guard resource.acceptableStatusCode(response.statusCode) else {
-                    let error = NSError(domain: "com.webservice.load", code: response.statusCode, userInfo: ["Reason": "Failing Status Code"])
-                    return .failure(self.errorMap(.foundation(error), data))
-                }
-
-                if response.requiresData() {
-                    guard !data.isEmpty else {
-                        let error = NSError(domain: "com.webservice.load", code: -1989, userInfo: ["Reason": "No Data"])
-                        return .failure(self.errorMap(.foundation(error), data))
-                    }
-                }
-            }
-
+        let publisher = session.dataTaskPublisher(for: request as URLRequest).map { (data, response) -> Result<T, DecodingError> in
             let result = resource.parse(data)
-            switch result {
-            case let .success(value):
-                return .success(value)
-            case let .failure(error):
-                return .failure(self.errorMap(.decoding(error), data))
-            }
-        }
+            return result
+        }.mapError { (error) -> Error in
+            return self.errorMap(.url(error), nil)
+        }.eraseToAnyPublisher()
         return publisher
     }
 
