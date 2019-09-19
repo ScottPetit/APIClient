@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-public struct APIClient<Error: Swift.Error> {
+public struct APIClient<APIError: Swift.Error> {
 
     public enum Error: Swift.Error {
         case foundation(NSError)
@@ -10,17 +10,17 @@ public struct APIClient<Error: Swift.Error> {
     }
 
     public let baseUrl: String
-    fileprivate let errorMap: (APIClient.Error, Data?) -> Error
+    fileprivate let errorMap: (APIClient.Error, Data?) -> APIError
     public var headers: [String: String]
 
-    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (APIClient.Error, Data?) -> Error) {
+    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (APIClient.Error, Data?) -> APIError) {
         self.baseUrl = baseUrl
         self.errorMap = errorMap
         self.headers = headers
     }
 
     @discardableResult
-    public func load<T>(_ resource: RemoteEndpoint<T>, completion: @escaping (Result<T, Error>) -> Void) -> CancelableOperation {
+    public func load<T>(_ resource: RemoteEndpoint<T>, completion: @escaping (Result<T, APIError>) -> Void) -> CancelableOperation {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
@@ -65,18 +65,41 @@ public struct APIClient<Error: Swift.Error> {
         return task
     }
 
-    @available(iOS 13, *)
-    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>) -> AnyPublisher<Result<T, DecodingError>, Error> {
+    @available(iOS 13, macOS 15, *)
+    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>) -> AnyPublisher<T, APIError> {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
         let request = self.request(from: finalResource)
         let session = URLSession.shared
-        let publisher = session.dataTaskPublisher(for: request as URLRequest).map { (data, response) -> Result<T, DecodingError> in
-            let result = resource.parse(data)
-            return result
-        }.mapError { (error) -> Error in
-            return self.errorMap(.url(error), nil)
+        let publisher = session.dataTaskPublisher(for: request as URLRequest).tryMap { (output) -> Data in
+            let data = output.data
+            if let httpResponse = output.response as? HTTPURLResponse {
+                if !resource.acceptableStatusCode(httpResponse.statusCode) {
+                    let foundationError = NSError(domain: "com.apiclient", code: httpResponse.statusCode, userInfo: nil)
+                    let error = APIClient.Error.foundation(foundationError)
+                    let mappedError = self.errorMap(error, data)
+                    throw mappedError
+                }
+            }
+            return data
+        }
+        .decode(type: T.self, decoder: JSONDecoder())
+        .mapError { (error) -> APIError in
+            if let apiError = error as? APIError {
+                return apiError
+            } else if let apiError = error as? APIClient.Error {
+                return self.errorMap(apiError, nil)
+            } else if let decodingError = error as? DecodingError {
+                let _error = APIClient.Error.decoding(decodingError)
+                return self.errorMap(_error, nil)
+            } else if let urlError = error as? URLError {
+                let _error = APIClient.Error.url(urlError)
+                return self.errorMap(_error, nil)
+            } else {
+                let _error = APIClient.Error.foundation(error as NSError)
+                return self.errorMap(_error, nil)
+            }
         }.eraseToAnyPublisher()
         return publisher
     }
