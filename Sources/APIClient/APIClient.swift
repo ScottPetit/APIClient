@@ -66,7 +66,7 @@ public struct APIClient<APIError: Swift.Error> {
     }
 
     @available(iOS 13, macOS 15, *)
-    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>) -> AnyPublisher<T, APIError> {
+    public func dataTaskPublisher<T>(_ resource: RemoteEndpoint<T>, decoder: JSONDecoder? = nil) -> AnyPublisher<T, APIError> {
         let finalResource = resource.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
@@ -84,7 +84,7 @@ public struct APIClient<APIError: Swift.Error> {
             }
             return data
         }
-        .decode(type: T.self, decoder: JSONDecoder())
+        .decode(type: T.self, decoder: decoder ?? JSONDecoder())
         .mapError { (error) -> APIError in
             if let apiError = error as? APIError {
                 return apiError
