@@ -52,13 +52,11 @@ public struct APIClient<APIError: Swift.Error> {
                 }
             }
 
-            let result = resource.parse(responseData)
-            switch result {
-            case let .success(value):
-                completion(.success(value))
-            case let .failure(error):
-                completion(.failure(self.errorMap(.decoding(error), data)))
+            let parsedResult = resource.parse(responseData)
+            let result = parsedResult.mapError { (decodingError) in
+                self.errorMap(.decoding(decodingError), data)
             }
+            completion(result)
         }
 
         task.resume()
@@ -91,11 +89,9 @@ public struct APIClient<APIError: Swift.Error> {
             } else if let apiError = error as? APIClient.Error {
                 return self.errorMap(apiError, nil)
             } else if let decodingError = error as? DecodingError {
-                let _error = APIClient.Error.decoding(decodingError)
-                return self.errorMap(_error, nil)
+                return self.errorMap(APIClient.Error.decoding(decodingError), nil)
             } else if let urlError = error as? URLError {
-                let _error = APIClient.Error.url(urlError)
-                return self.errorMap(_error, nil)
+                return self.errorMap(APIClient.Error.url(urlError), nil)
             } else {
                 let _error = APIClient.Error.foundation(error as NSError)
                 return self.errorMap(_error, nil)
