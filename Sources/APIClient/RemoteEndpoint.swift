@@ -19,7 +19,7 @@ public struct RemoteEndpoint<A: Decodable> {
                 headers: [String: String] = [:],
                 parameters: [String: String]? = nil,
                 acceptableStatusCode: @escaping (Int) -> Bool = expected200to300(_:),
-                sampleData: Data?,
+                sampleData: Data? = nil,
                 decoder: JSONDecoder? = nil,
                 parse: @escaping (Data) -> Result<A, DecodingError> = decode) {
         self.path = path
