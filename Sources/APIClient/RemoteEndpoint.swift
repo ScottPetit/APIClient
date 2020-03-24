@@ -10,15 +10,24 @@ public struct RemoteEndpoint<A: Decodable> {
     public let headers: [String: String]
     public let parameters: [String: String]?
     public let acceptableStatusCode: (Int) -> Bool
+    public let sampleData: Data?
     public let decoder: JSONDecoder?
     public let parse: (Data) -> Result<A, DecodingError>
 
-    public init(path: PathConvertible, method: HTTPMethod, headers: [String: String] = [:], parameters: [String: String]? = nil, acceptableStatusCode: @escaping (Int) -> Bool = expected200to300(_:), decoder: JSONDecoder? = nil, parse: @escaping (Data) -> Result<A, DecodingError> = decode) {
+    public init(path: PathConvertible,
+                method: HTTPMethod,
+                headers: [String: String] = [:],
+                parameters: [String: String]? = nil,
+                acceptableStatusCode: @escaping (Int) -> Bool = expected200to300(_:),
+                sampleData: Data?,
+                decoder: JSONDecoder? = nil,
+                parse: @escaping (Data) -> Result<A, DecodingError> = decode) {
         self.path = path
         self.method = method
         self.headers = headers
         self.parameters = parameters
         self.acceptableStatusCode = acceptableStatusCode
+        self.sampleData = sampleData
         self.decoder = decoder
         if let _decoder = decoder {
             self.parse = { data in
@@ -33,10 +42,38 @@ public struct RemoteEndpoint<A: Decodable> {
         let newHeaders = self.headers.merging(headers) { (old, new) -> String in
             return combine?(old, new) ?? new
         }
-        return RemoteEndpoint(path: self.path, method: self.method, headers: newHeaders, parameters: self.parameters, decoder: self.decoder, parse: self.parse)
+        return RemoteEndpoint(path: self.path,
+                              method: self.method,
+                              headers: newHeaders,
+                              parameters: self.parameters,
+                              acceptableStatusCode: self.acceptableStatusCode,
+                              sampleData: self.sampleData,
+                              decoder: self.decoder,
+                              parse: self.parse)
     }
 
     public func map<B: Decodable>(_ transform: @escaping (A) -> B) -> RemoteEndpoint<B> {
-        return RemoteEndpoint<B>(path: self.path, method: self.method, headers: self.headers, parameters: self.parameters, decoder: self.decoder) { self.parse($0).map(transform) }
+        return RemoteEndpoint<B>(path: self.path,
+                                 method: self.method,
+                                 headers: self.headers,
+                                 parameters: self.parameters,
+                                 acceptableStatusCode: self.acceptableStatusCode,
+                                 sampleData: sampleData,
+                                 decoder: self.decoder) {
+                                    self.parse($0).map(transform)
+        }
+    }
+
+    public func eraseToAnyEndpoint() -> AnyEndpoint {
+        return AnyEndpoint(path: self.path,
+                           method: self.method,
+                           headers: self.headers,
+                           parameters: self.parameters,
+                           acceptableStatusCode: self.acceptableStatusCode,
+                           sampleData: self.sampleData,
+                           decoder: self.decoder,
+                           parse: { data in
+                            return self.parse(data) as! Result<Any, DecodingError>
+        })
     }
 }
