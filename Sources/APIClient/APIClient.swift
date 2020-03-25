@@ -10,11 +10,13 @@ public struct APIClient<APIError: Swift.Error> {
     }
 
     /// An enum representing different options for stubbing the response of the APIClient
-    /// `.immediately` attempts to return a successful result by parsing `RemoteEndpoint.sampleData` if provided.  If this option is set and no `sampleData` is provided then the `APIClient` will return a `failure` case with an eror.
+    /// `.immediately` attempts to return a successful result by parsing `RemoteEndpoint.sampleData` if provided.  If this option is set and no `sampleData` is provided then the `APIClient` will return a `failure` case with an error.
     /// `.immediatelyError` allows clients to provide an `APIError` they wish to have return given an `AnyEndpoint`
+    /// `.immediatelyWithOverride` allows clients to override the `sampleData` of a `RemoteEndpoint` and instead use the provided `Data`
     public enum StubBehavior {
         case immediately
         case immediatelyError((AnyEndpoint) -> APIError)
+        case immediatelyWithOverride((AnyEndpoint) -> Data)
     }
 
     public let baseUrl: String
@@ -156,6 +158,13 @@ public struct APIClient<APIError: Swift.Error> {
         case let .immediatelyError(closure):
             let error = closure(endpoint.eraseToAnyEndpoint())
             completion(.failure(error))
+        case let .immediatelyWithOverride(closure):
+            let data = closure(endpoint.eraseToAnyEndpoint())
+            let parsedResult = endpoint.parse(data)
+            let result = parsedResult.mapError { (decodingError) in
+                self.errorMap(.decoding(decodingError), data)
+            }
+            completion(result)
         }
         return true
     }
@@ -182,6 +191,16 @@ public struct APIClient<APIError: Swift.Error> {
             let error = closure(endpoint.eraseToAnyEndpoint())
             let result = Future<T, APIError> { (promise) in
                 promise(.failure(error))
+            }
+            return result.eraseToAnyPublisher()
+        case let .immediatelyWithOverride(closure):
+            let result = Future<T, APIError> { promise in
+                let data = closure(endpoint.eraseToAnyEndpoint())
+                let parsedResult = endpoint.parse(data)
+                let result = parsedResult.mapError { (decodingError) in
+                    self.errorMap(.decoding(decodingError), data)
+                }
+                promise(result)
             }
             return result.eraseToAnyPublisher()
         }
