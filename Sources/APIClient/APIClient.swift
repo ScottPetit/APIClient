@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(Combine)
 import Combine
+#endif
 
 public struct APIClient<APIError: Swift.Error> {
 
@@ -79,7 +81,7 @@ public struct APIClient<APIError: Swift.Error> {
         return task
     }
 
-    @available(iOS 13, macOS 15, *)
+    @available(iOS 13, macOS 15, watchOS 6, tvOS 13, macCatalyst 13, *)
     public func dataTaskPublisher<T>(_ endpoint: RemoteEndpoint<T>, decoder: JSONDecoder? = nil) -> AnyPublisher<T, APIError> {
         let finalEndpoint = endpoint.append(self.headers, uniquingKeysWith: { original, new in
             return original
@@ -169,7 +171,7 @@ public struct APIClient<APIError: Swift.Error> {
         return true
     }
 
-    @available(iOS 13, macOS 15, *)
+    @available(iOS 13, macOS 15, watchOS 6, tvOS 13, macCatalyst 13, *)
     private func stub<T>(_ endpoint: RemoteEndpoint<T>) -> AnyPublisher<T, APIError>? {
         guard let stubBehavior = stubBehavior else { return nil }
         switch stubBehavior {
