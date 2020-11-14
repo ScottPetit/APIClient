@@ -5,12 +5,6 @@ import Combine
 
 public struct APIClient<APIError: Swift.Error> {
 
-    public enum Error: Swift.Error {
-        case foundation(NSError)
-        case url(URLError)
-        case decoding(DecodingError)
-    }
-
     /// An enum representing different options for stubbing the response of the APIClient
     /// `.immediately` attempts to return a successful result by parsing `RemoteEndpoint.sampleData` if provided.  If this option is set and no `sampleData` is provided then the `APIClient` will return a `failure` case with an error.
     /// `.immediatelyError` allows clients to provide an `APIError` they wish to have return given an `AnyEndpoint`
@@ -22,11 +16,11 @@ public struct APIClient<APIError: Swift.Error> {
     }
 
     public let baseUrl: String
-    fileprivate let errorMap: (APIClient.Error, Data?) -> APIError
+    fileprivate let errorMap: (NetworkingError, Data?) -> APIError
     public var headers: [String: String]
     public var stubBehavior: StubBehavior?
 
-    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (APIClient.Error, Data?) -> APIError) {
+    public init(baseUrl: String, headers: [String: String] = ["Content-Type": "application/json"], errorMap: @escaping (NetworkingError, Data?) -> APIError) {
         self.baseUrl = baseUrl
         self.errorMap = errorMap
         self.headers = headers
@@ -98,7 +92,7 @@ public struct APIClient<APIError: Swift.Error> {
             if let httpResponse = output.response as? HTTPURLResponse {
                 if !endpoint.acceptableStatusCode(httpResponse.statusCode) {
                     let foundationError = NSError(domain: "com.apiclient", code: httpResponse.statusCode, userInfo: nil)
-                    let error = APIClient.Error.foundation(foundationError)
+                    let error = NetworkingError.foundation(foundationError)
                     let mappedError = self.errorMap(error, data)
                     throw mappedError
                 }
@@ -109,15 +103,15 @@ public struct APIClient<APIError: Swift.Error> {
         .mapError { (error) -> APIError in
             if let apiError = error as? APIError {
                 return apiError
-            } else if let apiError = error as? APIClient.Error {
+            } else if let apiError = error as? NetworkingError {
                 return self.errorMap(apiError, nil)
             } else if let decodingError = error as? DecodingError {
-                return self.errorMap(APIClient.Error.decoding(decodingError), nil)
+                return self.errorMap(NetworkingError.decoding(decodingError), nil)
             } else if let urlError = error as? URLError {
-                return self.errorMap(APIClient.Error.url(urlError), nil)
+                return self.errorMap(NetworkingError.url(urlError), nil)
             } else {
-                let _error = APIClient.Error.foundation(error as NSError)
-                return self.errorMap(_error, nil)
+                let networkingError = NetworkingError.foundation(error as NSError)
+                return self.errorMap(networkingError, nil)
             }
         }.eraseToAnyPublisher()
         return publisher
@@ -208,11 +202,11 @@ public struct APIClient<APIError: Swift.Error> {
         }
     }
 
-    private func expectedSampleDataError<T>(for endpoint: RemoteEndpoint<T>) -> APIClient.Error {
+    private func expectedSampleDataError<T>(for endpoint: RemoteEndpoint<T>) -> NetworkingError {
         let error = NSError(domain: "io.hecho.api-client",
                             code: 808,
                             userInfo: [NSLocalizedDescriptionKey: "Expected sample data for \(endpoint.path) but none was provided"])
-        let apiError = APIClient.Error.foundation(error)
+        let apiError = NetworkingError.foundation(error)
         return apiError
     }
 
