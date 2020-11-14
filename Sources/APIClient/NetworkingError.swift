@@ -12,3 +12,7 @@ public enum NetworkingError: Swift.Error {
     case url(URLError)
     case decoding(DecodingError)
 }
+
+public extension NetworkingError {
+    static var identity: (NetworkingError, Data?) -> NetworkingError = { error, _ in error }
+}
