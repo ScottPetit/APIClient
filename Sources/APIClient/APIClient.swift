@@ -3,7 +3,7 @@ import Foundation
 import Combine
 #endif
 
-public struct APIClient<APIError: Swift.Error> {
+public class APIClient<APIError: Swift.Error> {
 
     /// An enum representing different options for stubbing the response of the APIClient
     /// `.immediately` attempts to return a successful result by parsing `RemoteEndpoint.sampleData` if provided.  If this option is set and no `sampleData` is provided then the `APIClient` will return a `failure` case with an error.
