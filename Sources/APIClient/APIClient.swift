@@ -99,7 +99,19 @@ public class APIClient<APIError: Swift.Error> {
             }
             return data
         }
-        .decode(type: T.self, decoder: decoder ?? JSONDecoder())
+        .tryMap { data -> T in
+            if let decoder = decoder {
+                return try decoder.decode(T.self, from: data)
+            } else {
+                let result = endpoint.parse(data)
+                switch result {
+                case .success(let value):
+                    return value
+                case .failure(let error):
+                    throw error
+                }
+            }
+        }
         .mapError { (error) -> APIError in
             if let apiError = error as? APIError {
                 return apiError
