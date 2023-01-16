@@ -74,6 +74,36 @@ public class APIClient<APIError: Swift.Error> {
         task.resume()
         return task
     }
+    
+    public func load<T>(_ endpoint: RemoteEndpoint<T>) async throws -> T {
+        let finalResource = endpoint.append(self.headers, uniquingKeysWith: { original, new in
+            return original
+        })
+        if let stubbedResult = try stub(endpoint) {
+            return stubbedResult
+        }
+
+        let request = self.request(from: finalResource)
+
+        let session = URLSession.shared
+        let (data, response) = try await session.data(for: request as URLRequest)
+        if let response = response as? HTTPURLResponse {
+            guard endpoint.acceptableStatusCode(response.statusCode) else {
+                let error = NSError(domain: "com.webservice.load", code: response.statusCode, userInfo: ["Reason": "Failing Status Code"])
+                throw NetworkingError.foundation(error)
+            }
+
+            if response.requiresData() {
+                guard !data.isEmpty else {
+                    let error = NSError(domain: "com.webservice.load", code: -1989, userInfo: ["Reason": "No Data"])
+                    throw NetworkingError.foundation(error)
+                }
+            }
+        }
+
+        let result = endpoint.parse(data)
+        return try handleFetched(result, data: data)
+    }
 
     @available(iOS 13, macOS 15, watchOS 6, tvOS 13, macCatalyst 13, *)
     public func dataTaskPublisher<T>(_ endpoint: RemoteEndpoint<T>, decoder: JSONDecoder? = nil) -> AnyPublisher<T, APIError> {
@@ -81,7 +111,7 @@ public class APIClient<APIError: Swift.Error> {
             return original
         })
 
-        if let stubbedPublisher = self.stub(finalEndpoint) {
+        if let stubbedPublisher: AnyPublisher<T, APIError> = self.stub(finalEndpoint) {
             return stubbedPublisher
         }
 
@@ -176,6 +206,27 @@ public class APIClient<APIError: Swift.Error> {
         }
         return true
     }
+    
+    private func stub<T>(_ endpoint: RemoteEndpoint<T>) throws -> T? {
+        guard let stubBehavior = stubBehavior else { return nil }
+        switch stubBehavior {
+        case .immediately:
+            if let sampleData = endpoint.sampleData {
+                let parsedResult = endpoint.parse(sampleData)
+                return try handleFetched(parsedResult, data: sampleData)
+            } else {
+                let error = self.expectedSampleDataError(for: endpoint)
+                throw self.errorMap(error, Data())
+            }
+        case let .immediatelyError(closure):
+            let error = closure(endpoint.eraseToAnyEndpoint())
+            throw error
+        case let .immediatelyWithOverride(closure):
+            let data = closure(endpoint.eraseToAnyEndpoint())
+            let parsedResult = endpoint.parse(data)
+            return try handleFetched(parsedResult, data: data)
+        }
+    }
 
     @available(iOS 13, macOS 15, watchOS 6, tvOS 13, macCatalyst 13, *)
     private func stub<T>(_ endpoint: RemoteEndpoint<T>) -> AnyPublisher<T, APIError>? {
@@ -211,6 +262,15 @@ public class APIClient<APIError: Swift.Error> {
                 promise(result)
             }
             return result.eraseToAnyPublisher()
+        }
+    }
+    
+    private func handleFetched<T>(_ result: Result<T, DecodingError>, data: Data) throws -> T {
+        switch result {
+        case .success(let value):
+            return value
+        case .failure(let error):
+            throw self.errorMap(.decoding(error), data)
         }
     }
 
