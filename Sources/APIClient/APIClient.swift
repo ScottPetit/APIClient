@@ -79,7 +79,7 @@ public class APIClient<APIError: Swift.Error> {
         let finalResource = endpoint.append(self.headers, uniquingKeysWith: { original, new in
             return original
         })
-        if let stubbedResult = try stub(endpoint) {
+        if let stubbedResult: T = try stub(endpoint) {
             return stubbedResult
         }
 
