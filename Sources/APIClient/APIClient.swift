@@ -90,13 +90,13 @@ public class APIClient<APIError: Swift.Error> {
         if let response = response as? HTTPURLResponse {
             guard endpoint.acceptableStatusCode(response.statusCode) else {
                 let error = NSError(domain: "com.webservice.load", code: response.statusCode, userInfo: ["Reason": "Failing Status Code"])
-                throw NetworkingError.foundation(error)
+                throw errorMap(.foundation(error), data)
             }
 
             if response.requiresData() {
                 guard !data.isEmpty else {
                     let error = NSError(domain: "com.webservice.load", code: -1989, userInfo: ["Reason": "No Data"])
-                    throw NetworkingError.foundation(error)
+                    throw errorMap(.foundation(error), data)
                 }
             }
         }
